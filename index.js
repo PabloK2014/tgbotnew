@@ -1493,14 +1493,20 @@ async function handleBusinessMessage(msg) {
   if (!connId) return;
 
   const conn = connections.get(connId);
-  if (conn && msg.text && msg.text.startsWith(".") && msg.from && msg.from.id === conn.ownerUserId) {
-    const handled = await handleCommand(conn, msg);
-    if (handled) return; // команды не кэшируем как обычные сообщения
+  if (!conn) {
+    console.log(`[business] conn не найден для connId: ${connId}`);
+    return;
   }
 
-  // Запоминаем последнее сообщение именно от собеседника (не от владельца аккаунта),
-  // чтобы команда .switch без аргументов знала, что переводить.
-  if (conn && msg.from && msg.from.id !== conn.ownerUserId) {
+  console.log(`[business] chat: ${msg.chat.id}, from: ${msg.from?.id}, owner: ${conn.ownerUserId}, text: ${msg.text}`);
+
+  if (msg.text && msg.text.startsWith(".") && msg.from && msg.from.id === conn.ownerUserId) {
+    console.log(`[business] обрабатываю команду: ${msg.text}`);
+    const handled = await handleCommand(conn, msg);
+    if (handled) return;
+  }
+
+  if (msg.from && msg.from.id !== conn.ownerUserId) {
     const text = msg.text || msg.caption || "";
     if (text) rememberLastIncoming(connId, msg.chat.id, text);
   }
