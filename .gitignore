@@ -1,7 +1,6 @@
 node_modules/
 .env
 
-# Runtime data files (generated automatically)
 cache.json
 connections.json
 balances.json

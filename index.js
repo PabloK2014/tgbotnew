@@ -52,6 +52,7 @@ function loadJsonMap(file) {
 function loadAll() {
   connections = loadJsonMap(CONNECTIONS_FILE);
   cache = loadJsonMap(CACHE_FILE);
+  console.log(`[init] загружено connections: ${connections.size}, cache: ${cache.size}`);
   try {
     if (fs.existsSync(OFFSET_FILE)) {
       updateOffset = parseInt(fs.readFileSync(OFFSET_FILE, "utf-8"), 10) || 0;
@@ -1492,10 +1493,20 @@ async function handleBusinessMessage(msg) {
   const connId = msg.business_connection_id;
   if (!connId) return;
 
-  const conn = connections.get(connId);
+  let conn = connections.get(connId);
+
+  // Если коннект неизвестен — пробуем получить его от Telegram и сохранить
   if (!conn) {
-    console.log(`[business] conn не найден для connId: ${connId}`);
-    return;
+    console.log(`[business] conn не найден для connId: ${connId}, запрашиваю у Telegram...`);
+    const res = await tg("getBusinessConnection", { business_connection_id: connId });
+    if (res?.ok && res.result) {
+      await handleBusinessConnection(res.result);
+      conn = connections.get(connId);
+      console.log(`[business] conn восстановлен для connId: ${connId}`);
+    } else {
+      console.log(`[business] не удалось восстановить conn для connId: ${connId}`);
+      return;
+    }
   }
 
   console.log(`[business] chat: ${msg.chat.id}, from: ${msg.from?.id}, owner: ${conn.ownerUserId}, text: ${msg.text}`);
