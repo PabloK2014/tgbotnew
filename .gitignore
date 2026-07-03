@@ -1,0 +1,12 @@
+node_modules/
+.env
+
+# Runtime data files (generated automatically)
+cache.json
+connections.json
+balances.json
+games.json
+exchangeRates.json
+lastIncoming.json
+offset.txt
+sc_client_id.json

@@ -1,0 +1,17 @@
+{
+  "name": "tg-business-monitor",
+  "version": "1.0.0",
+  "description": "Telegram бот для отслеживания удалённых/отредактированных сообщений через Telegram Business (автоматизация чатов)",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "https-proxy-agent": "^7.0.5",
+    "socks-proxy-agent": "^8.0.4"
+  }
+}
