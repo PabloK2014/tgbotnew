@@ -13,21 +13,15 @@ if (!BOT_TOKEN) {
 }
 
 const PROXY_URL = process.env.PROXY_URL;
-const PROXY_ENABLED = String(process.env.PROXY_ENABLED || "").trim().toLowerCase() === "true";
+const LOCAL = String(process.env.LOCAL || "").trim().toLowerCase() === "true";
 let proxyAgent;
-if (PROXY_ENABLED && PROXY_URL) {
+if (LOCAL && PROXY_URL) {
   proxyAgent = PROXY_URL.startsWith("socks")
     ? new SocksProxyAgent(PROXY_URL)
     : new HttpsProxyAgent(PROXY_URL);
   console.log(`🌐 Используется прокси: ${PROXY_URL.replace(/\/\/.*@/, "//***@")}`);
-  // Некоторые зависимости могут делать свои https-запросы напрямую, не принимая
-  // agent явно и не видя proxyAgent из наших собственных функций. Подмена
-  // глобального агента Node.js заставляет ЛЮБОЙ https.request без явного
-  // agent идти через прокси, что закрывает эту дыру.
   https.globalAgent = proxyAgent;
   require("http").globalAgent = proxyAgent;
-} else if (!PROXY_ENABLED && PROXY_URL) {
-  console.log("🌐 Прокси отключён (PROXY_ENABLED=false), несмотря на заданный PROXY_URL.");
 }
 
 const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -1509,10 +1503,12 @@ async function handleBusinessMessage(msg) {
     }
   }
 
-  console.log(`[business] chat: ${msg.chat.id}, from: ${msg.from?.id}, owner: ${conn.ownerUserId}, text: ${msg.text}`);
+  if (LOCAL) {
+    console.log(`[business] chat: ${msg.chat.id}, from: ${msg.from?.id}, owner: ${conn.ownerUserId}, text: ${msg.text}`);
+  }
 
   if (msg.text && msg.text.startsWith(".") && msg.from && msg.from.id === conn.ownerUserId) {
-    console.log(`[business] обрабатываю команду: ${msg.text}`);
+    if (LOCAL) console.log(`[business] обрабатываю команду: ${msg.text}`);
     const handled = await handleCommand(conn, msg);
     if (handled) return;
   }
@@ -1526,7 +1522,9 @@ async function handleBusinessMessage(msg) {
 }
 
 async function handleBotMessage(msg) {
-  console.log("Пришло сообщение из чата:", msg.chat.id, "тип:", msg.chat.type, "текст:", msg.text);
+  if (LOCAL) {
+    console.log("Пришло сообщение из чата:", msg.chat.id, "тип:", msg.chat.type, "текст:", msg.text);
+  }
   const isPrivate = msg.chat.type === "private";
   const isGroup = msg.chat.type === "group" || msg.chat.type === "supergroup";
   if (!isPrivate && !isGroup) return;
