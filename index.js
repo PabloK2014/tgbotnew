@@ -156,7 +156,7 @@ async function tg(method, params) {
   try {
     const data = await httpsPostJson(`${API_URL}/${method}`, params);
     if (!data.ok) {
-      console.error(`Ошибка ${method}:`, data.description);
+      console.error(`Ошибка ${method} (chat: ${params?.chat_id}):`, data.description, JSON.stringify(params));
     }
     return data;
   } catch (e) {
@@ -1201,10 +1201,11 @@ async function handleCallback(callbackQuery) {
 // - в группе/личном чате с ботом редактировать чужое сообщение нельзя, поэтому отправляем новое
 // Возвращает message_id сообщения, которое дальше можно редактировать (updateCommandResponse).
 async function beginCommandResponse(conn, chatId, commandMessageId, text, markup = null, markdown = true) {
-  if (conn.isGroup) {
+  // В бизнес-чате редактируем сообщение владельца через business_connection_id.
+  // В группах и обычном личном чате с ботом — отправляем новое сообщение (редактировать чужие нельзя).
+  if (!bcid(conn)) {
     const sent = await tg("sendMessage", {
       chat_id: chatId,
-      reply_to_message_id: commandMessageId,
       text,
       parse_mode: markdown ? "Markdown" : undefined,
       reply_markup: markup ? JSON.stringify(markup) : undefined,
@@ -1227,6 +1228,8 @@ async function beginCommandResponse(conn, chatId, commandMessageId, text, markup
 // потому что в обоих случаях это сообщение либо принадлежит боту, либо доступно через business-подключение.
 async function updateCommandResponse(conn, chatId, workingMessageId, text, { markup = null, markdown = true } = {}) {
   if (!workingMessageId) return;
+  // Если нет business_connection_id (обычный чат с ботом), редактируем собственное сообщение бота
+  // без business_connection_id — это всегда работает, т.к. workingMessageId указывает на сообщение бота.
   await tg("editMessageText", {
     chat_id: chatId,
     message_id: workingMessageId,
@@ -1248,7 +1251,8 @@ async function editCommandResponse(conn, chatId, messageId, text, markup = null,
 
 async function handleCommand(conn, msg) {
   const chatId = msg.chat.id;
-  const userId = msg.from.id;
+  const userId = msg.from?.id;
+  if (!userId) return false;
   const [cmdRaw, ...args] = msg.text.trim().split(/\s+/);
   const cmd = cmdRaw.toLowerCase();
 
@@ -1512,7 +1516,6 @@ async function handleBotMessage(msg) {
 
   const text = msg.text || msg.caption || "";
 
-
   if (isPrivate && text.startsWith("/start")) {
     const welcomeText =
       `👋 Привет! Я Telegram Save Bot.\n\n` +
@@ -1542,7 +1545,11 @@ async function handleBotMessage(msg) {
   // и в личном чате напрямую с ботом (не через бизнес-подключение).
   if (text.startsWith(".")) {
     const conn = await getOrCreateChatConn(msg.chat.id);
-    await handleCommand(conn, msg);
+    try {
+      await handleCommand(conn, msg);
+    } catch (e) {
+      console.error(`Ошибка handleCommand (chat ${msg.chat.id}, cmd ${text.split(" ")[0]}):`, e.message);
+    }
     return;
   }
 
